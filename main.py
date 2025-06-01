@@ -324,6 +324,9 @@ class TimeClockAnalyzer:
         # Get employees and create day-by-day data structure
         employees = sorted(self.processed_data['employee'].unique())
         
+        # CHANGE REQUEST #4: Create master list of ALL dates worked by ANY employee
+        all_dates = sorted(self.processed_data['date'].unique())
+        
         # Create data structure for punch details
         punch_data = {}
         color_data = {}
@@ -335,28 +338,48 @@ class TimeClockAnalyzer:
             
             # Get employee's data
             emp_data = self.processed_data[self.processed_data['employee'] == employee]
+            employee_dates = set(emp_data['date'].unique())
             
-            # Group by date
-            for date in sorted(emp_data['date'].unique()):
-                day_data = emp_data[emp_data['date'] == date].sort_values('in_time_minutes')
+            # CHANGE REQUEST #4: Process ALL dates for this employee
+            for date in all_dates:
                 day_name = date.strftime('%a')  # Mon, Tue, Wed, Thu, Fri
                 day_key = f"{date.strftime('%m/%d')} ({day_name})"
                 
-                punch_data[employee][day_key] = {
-                    'morn_in': '',
-                    'morn_out': '',
-                    'aft_in': '',
-                    'aft_out': ''
-                }
-                color_data[employee][day_key] = {
-                    'morn_in': '#F8F8F8',  # Light gray for missing data
-                    'morn_out': '#F8F8F8',
-                    'aft_in': '#F8F8F8',
-                    'aft_out': '#F8F8F8'
-                }
-                
-                # Process punch pairs for this day
-                records = day_data.to_dict('records')
+                # CHANGE REQUEST #4: Check if employee worked on this date
+                if date in employee_dates:
+                    # Employee worked on this date - process normally
+                    day_data = emp_data[emp_data['date'] == date].sort_values('in_time_minutes')
+                    
+                    punch_data[employee][day_key] = {
+                        'morn_in': '',
+                        'morn_out': '',
+                        'aft_in': '',
+                        'aft_out': ''
+                    }
+                    color_data[employee][day_key] = {
+                        'morn_in': '#F8F8F8',  # Light gray for missing data
+                        'morn_out': '#F8F8F8',
+                        'aft_in': '#F8F8F8',
+                        'aft_out': '#F8F8F8'
+                    }
+                    
+                    # Process punch pairs for this day
+                    records = day_data.to_dict('records')
+                else:
+                    # CHANGE REQUEST #4: Employee was absent - show N/A with gray background
+                    punch_data[employee][day_key] = {
+                        'morn_in': 'N/A',
+                        'morn_out': 'N/A',
+                        'aft_in': 'N/A',
+                        'aft_out': 'N/A'
+                    }
+                    color_data[employee][day_key] = {
+                        'morn_in': '#D3D3D3',  # Gray background for absent days
+                        'morn_out': '#D3D3D3',
+                        'aft_in': '#D3D3D3',
+                        'aft_out': '#D3D3D3'
+                    }
+                    records = []  # No records to process for absent days
                 
                 if len(records) >= 1:
                     # Morning punch pair
@@ -364,23 +387,27 @@ class TimeClockAnalyzer:
                     punch_data[employee][day_key]['morn_in'] = morning_rec['in_time_str']
                     punch_data[employee][day_key]['morn_out'] = morning_rec['out_time_str']
                     
-                    # Enhanced color coding for morning in
+                    # CHANGE REQUEST #5: Enhanced severity color classification for morning in
                     morn_in_diff = abs(morning_rec['in_time_minutes'] - self.EXPECTED_MORNING_ARRIVAL)
                     if morn_in_diff <= 5:
-                        color_data[employee][day_key]['morn_in'] = '#28A745'  # Professional green
+                        color_data[employee][day_key]['morn_in'] = '#228B22'  # Green: Acceptable
                     elif morn_in_diff <= 7:
-                        color_data[employee][day_key]['morn_in'] = '#FFC107'  # Professional yellow
+                        color_data[employee][day_key]['morn_in'] = '#DAA520'  # Yellow: Minor Delay
+                    elif morn_in_diff <= 11:
+                        color_data[employee][day_key]['morn_in'] = '#FF6600'  # Orange: Major Delay
                     else:
-                        color_data[employee][day_key]['morn_in'] = '#DC3545'  # Professional red
+                        color_data[employee][day_key]['morn_in'] = '#DC143C'  # Red: Significant Delay
                     
-                    # Enhanced color coding for morning out (lunch departure)
+                    # CHANGE REQUEST #5: Enhanced severity color classification for lunch departure
                     morn_out_diff = abs(morning_rec['out_time_minutes'] - self.EXPECTED_LUNCH_DEPARTURE)
                     if morn_out_diff <= 5:
-                        color_data[employee][day_key]['morn_out'] = '#28A745'  # Professional green
+                        color_data[employee][day_key]['morn_out'] = '#228B22'  # Green: Acceptable
                     elif morn_out_diff <= 7:
-                        color_data[employee][day_key]['morn_out'] = '#FFC107'  # Professional yellow
+                        color_data[employee][day_key]['morn_out'] = '#DAA520'  # Yellow: Minor Delay
+                    elif morn_out_diff <= 11:
+                        color_data[employee][day_key]['morn_out'] = '#FF6600'  # Orange: Major Delay
                     else:
-                        color_data[employee][day_key]['morn_out'] = '#DC3545'  # Professional red
+                        color_data[employee][day_key]['morn_out'] = '#DC143C'  # Red: Significant Delay
                 
                 if len(records) >= 2:
                     # Afternoon punch pair
@@ -388,27 +415,31 @@ class TimeClockAnalyzer:
                     punch_data[employee][day_key]['aft_in'] = afternoon_rec['in_time_str']
                     punch_data[employee][day_key]['aft_out'] = afternoon_rec['out_time_str']
                     
-                    # Enhanced color coding for afternoon in (lunch return)
+                    # CHANGE REQUEST #5: Enhanced severity color classification for lunch return
                     aft_in_diff = abs(afternoon_rec['in_time_minutes'] - self.EXPECTED_LUNCH_RETURN)
                     if aft_in_diff <= 5:
-                        color_data[employee][day_key]['aft_in'] = '#28A745'  # Professional green
+                        color_data[employee][day_key]['aft_in'] = '#228B22'  # Green: Acceptable
                     elif aft_in_diff <= 7:
-                        color_data[employee][day_key]['aft_in'] = '#FFC107'  # Professional yellow
+                        color_data[employee][day_key]['aft_in'] = '#DAA520'  # Yellow: Minor Delay
+                    elif aft_in_diff <= 11:
+                        color_data[employee][day_key]['aft_in'] = '#FF6600'  # Orange: Major Delay
                     else:
-                        color_data[employee][day_key]['aft_in'] = '#DC3545'  # Professional red
+                        color_data[employee][day_key]['aft_in'] = '#DC143C'  # Red: Significant Delay
                     
-                    # Enhanced color coding for afternoon out (end of day)
+                    # CHANGE REQUEST #5: Enhanced severity color classification for end of day
                     aft_out_time = afternoon_rec['out_time_minutes']
                     end_time_diff_1 = abs(aft_out_time - self.EXPECTED_END_TIME_1)
                     end_time_diff_2 = abs(aft_out_time - self.EXPECTED_END_TIME_2)
                     min_end_diff = min(end_time_diff_1, end_time_diff_2)
                     
                     if min_end_diff <= 5:
-                        color_data[employee][day_key]['aft_out'] = '#28A745'  # Professional green
+                        color_data[employee][day_key]['aft_out'] = '#228B22'  # Green: Acceptable
                     elif min_end_diff <= 7:
-                        color_data[employee][day_key]['aft_out'] = '#FFC107'  # Professional yellow
+                        color_data[employee][day_key]['aft_out'] = '#DAA520'  # Yellow: Minor Delay
+                    elif min_end_diff <= 11:
+                        color_data[employee][day_key]['aft_out'] = '#FF6600'  # Orange: Major Delay
                     else:
-                        color_data[employee][day_key]['aft_out'] = '#DC3545'  # Professional red
+                        color_data[employee][day_key]['aft_out'] = '#DC143C'  # Red: Significant Delay
         
         # Calculate optimal figure size based on data
         total_rows = sum(len(punch_data[emp]) for emp in employees)
@@ -428,9 +459,10 @@ class TimeClockAnalyzer:
         fig.patch.set_facecolor('white')
         
         # PRIMARY VISUALIZATION: Enhanced Detailed Punch Heat Map
+        # CHANGE REQUEST #5: Updated title with enhanced severity levels
         ax1.set_title('EMPLOYEE TIME CLOCK - DETAILED PUNCH ANALYSIS\n' +
-                     'Color Coding: 🟢 On Time (±5min) | 🟡 Minor Delay (5-7min) | 🔴 Significant Delay (>7min)\n' +
-                     'Expected Times: 8:00 AM Arrival | 12:00 PM Lunch Out | 12:30 PM Lunch Return | 4:00/4:30 PM Departure', 
+                     'Color Coding: 🟢 Acceptable (±5min) | 🟡 Minor (5-7min) | 🟠 Major (7-11min) | 🔴 Significant (>11min)\n' +
+                     'Management Actions: Green=None | Yellow=Verbal | Orange=Written | Red=Disciplinary | Gray=Absence Tracking', 
                      fontsize=18, fontweight='bold', pad=30, color='#2C3E50')
         
         # Enhanced column headers
@@ -444,7 +476,7 @@ class TimeClockAnalyzer:
         employee_separators = []
         
         row_index = 0
-        for employee in employees:
+        for emp_idx, employee in enumerate(employees):
             employee_days = sorted([day for day in punch_data[employee].keys()])
             employee_start_row = row_index
             
@@ -469,38 +501,70 @@ class TimeClockAnalyzer:
                 colors_grid.append(day_colors)
                 row_index += 1
             
+            # CHANGE REQUEST #3: Add visual spacing between employees (except after last employee)
+            if emp_idx < len(employees) - 1:
+                # Add spacing row - empty with white background
+                all_employees_expanded.append("")  # Empty label for spacing row
+                punch_times_grid.append(["", "", "", ""])  # Empty punch data
+                colors_grid.append(["white", "white", "white", "white"])  # White background
+                row_index += 1
+            
             # Mark employee separator
             employee_separators.append(employee_start_row + len(employee_days))
         
         # Create the enhanced heatmap with larger cells and better spacing
         for i, (row_punches, row_colors) in enumerate(zip(punch_times_grid, colors_grid)):
             for j, (punch_time, color) in enumerate(zip(row_punches, row_colors)):
-                # Create larger rectangles with padding
-                rect = plt.Rectangle((j + 0.02, len(punch_times_grid) - 1 - i + 0.02), 
-                                   0.96, 0.96,  # Slightly smaller than 1 to create padding
-                                   facecolor=color,
-                                   edgecolor='#34495E', linewidth=1.5,
-                                   alpha=0.9)
+                # CHANGE REQUEST #3: Handle spacing rows without borders for clean separation
+                if color == 'white':
+                    # Spacing row - no border, clean white space
+                    rect = plt.Rectangle((j + 0.02, len(punch_times_grid) - 1 - i + 0.02), 
+                                       0.96, 0.96,
+                                       facecolor=color,
+                                       edgecolor='white', linewidth=0,
+                                       alpha=1.0)
+                else:
+                    # Regular data cell
+                    rect = plt.Rectangle((j + 0.02, len(punch_times_grid) - 1 - i + 0.02), 
+                                       0.96, 0.96,  # Slightly smaller than 1 to create padding
+                                       facecolor=color,
+                                       edgecolor='#34495E', linewidth=1.5,
+                                       alpha=0.9)
                 ax1.add_patch(rect)
                 
                 # Add punch time text with enhanced readability
                 if punch_time:
-                    # Determine text color based on background for maximum contrast
-                    if color in ['#28A745', '#DC3545']:  # Green or Red
-                        text_color = 'white'
-                    elif color == '#FFC107':  # Yellow
-                        text_color = '#2C3E50'  # Dark blue-gray
+                    # CHANGE REQUEST #3: Skip text rendering for spacing rows (white background)
+                    if color == 'white':
+                        continue  # Don't render any text for spacing rows
+                    
+                    # CHANGE REQUEST #5: Determine text color based on new color scheme
+                    if color == '#228B22':  # Green: Acceptable
+                        text_color = '#2C3E50'  # Dark text for readability
+                    elif color == '#DAA520':  # Yellow: Minor Delay
+                        text_color = '#2C3E50'  # Dark text for readability
+                    elif color == '#FF6600':  # Orange: Major/Significant Delay
+                        text_color = '#2C3E50'  # Medium gray for safety orange
+                    elif color == '#FF0000':  # Red (if ever used)
+                        text_color = 'white'  # White text for contrast
+                    elif color == '#D3D3D3':  # Gray: Absent days
+                        text_color = '#2C3E50'  # Medium gray for N/A text
                     else:  # Light gray (missing data)
-                        text_color = '#6C757D'  # Medium gray
+                        text_color = '#2C3E50'  # Medium gray
                     
                     ax1.text(j + 0.5, len(punch_times_grid) - 1 - i + 0.5, punch_time,
                            ha='center', va='center', fontsize=14, fontweight='bold',
                            color=text_color, family='monospace')
-                else:
-                    # Show "N/A" for missing punches
+                elif color != 'white':  # CHANGE REQUEST #3: Don't show N/A for spacing rows
+                    # Show "N/A" for missing punches (but not for spacing rows)
+                    if color == '#D3D3D3':  # CHANGE REQUEST #4: Absent day styling
+                        text_color = '#6C757D'  # Medium gray for absent days
+                    else:
+                        text_color = '#6C757D'  # Medium gray for missing punches
+                    
                     ax1.text(j + 0.5, len(punch_times_grid) - 1 - i + 0.5, 'N/A',
                            ha='center', va='center', fontsize=12, fontweight='normal',
-                           color='#6C757D', style='italic')
+                           color=text_color, style='italic')
         
         # Enhanced axes setup
         ax1.set_xlim(-0.1, len(columns) + 0.1)
@@ -523,7 +587,7 @@ class TimeClockAnalyzer:
         for i, emp_day in enumerate(reversed(all_employees_expanded)):
             employee_name = emp_day.split('\n')[0]
             if current_employee and current_employee != employee_name:
-                ax1.axhline(y=len(all_employees_expanded) - i, color='#2C3E50', 
+                ax1.axhline(y=len(all_employees_expanded) - i - 0.5, color='#2C3E50', 
                           linewidth=3, alpha=0.8, linestyle='-')
             current_employee = employee_name
         
@@ -586,12 +650,14 @@ class TimeClockAnalyzer:
             ax2.spines['left'].set_color('#2C3E50')
             ax2.tick_params(colors='#2C3E50', which='both')
         
-        # Add professional legend for the detailed heat map
+        # CHANGE REQUEST #5: Enhanced legend with business action guidance
         legend_elements = [
-            plt.Rectangle((0, 0), 1, 1, facecolor='#28A745', label='On Time (±5 minutes)'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#FFC107', label='Minor Delay (5-7 minutes)'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#DC3545', label='Significant Delay (>7 minutes)'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#F8F8F8', edgecolor='#34495E', label='Missing Punch Data')
+            plt.Rectangle((0, 0), 1, 1, facecolor='#228B22', label='Acceptable (±5 min) - No Action Required'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#DAA520', label='Minor Delay (5-7 min) - Verbal Reminder'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#FF6600', label='Major Delay (7-11 min) - Written Documentation'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#DC143C', label='Significant Delay (>11 min) - Disciplinary Action'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#F8F8F8', edgecolor='#34495E', label='Missing Punch Data'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#D3D3D3', edgecolor='#34495E', label='Absent Day - Absence Tracking')
         ]
         ax1.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.02, 1), 
                   fontsize=12, frameon=True, fancybox=True, shadow=True)
