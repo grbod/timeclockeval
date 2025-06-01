@@ -408,6 +408,10 @@ class TimeClockAnalyzer:
                         color_data[employee][day_key]['morn_out'] = '#FF6600'  # Orange: Major Delay
                     else:
                         color_data[employee][day_key]['morn_out'] = '#DC143C'  # Red: Significant Delay
+                    
+                    # PURPLE LOGIC FIX: Check for missed out punch (InDate != OutDate)
+                    if morning_rec['in_date'] != morning_rec['out_date']:
+                        color_data[employee][day_key]['morn_out'] = '#9932CC'  # Purple: Missed Out Punch
                 
                 if len(records) >= 2:
                     # Afternoon punch pair
@@ -440,6 +444,10 @@ class TimeClockAnalyzer:
                         color_data[employee][day_key]['aft_out'] = '#FF6600'  # Orange: Major Delay
                     else:
                         color_data[employee][day_key]['aft_out'] = '#DC143C'  # Red: Significant Delay
+                    
+                    # PURPLE LOGIC FIX: Check for missed out punch (InDate != OutDate)
+                    if afternoon_rec['in_date'] != afternoon_rec['out_date']:
+                        color_data[employee][day_key]['aft_out'] = '#9932CC'  # Purple: Missed Out Punch
         
         # Calculate optimal figure size based on data
         total_rows = sum(len(punch_data[emp]) for emp in employees)
@@ -543,14 +551,16 @@ class TimeClockAnalyzer:
                         text_color = '#2C3E50'  # Dark text for readability
                     elif color == '#DAA520':  # Yellow: Minor Delay
                         text_color = '#2C3E50'  # Dark text for readability
-                    elif color == '#FF6600':  # Orange: Major/Significant Delay
-                        text_color = '#2C3E50'  # Medium gray for safety orange
-                    elif color == '#FF0000':  # Red (if ever used)
+                    elif color == '#FF6600':  # Orange: Major Delay
+                        text_color = 'white'  # White text for contrast
+                    elif color == '#DC143C':  # Red: Significant Delay
+                        text_color = 'white'  # White text for contrast
+                    elif color == '#9932CC':  # Purple: Missed Out Punch
                         text_color = 'white'  # White text for contrast
                     elif color == '#D3D3D3':  # Gray: Absent days
-                        text_color = '#2C3E50'  # Medium gray for N/A text
+                        text_color = '#6C757D'  # Medium gray for N/A text
                     else:  # Light gray (missing data)
-                        text_color = '#2C3E50'  # Medium gray
+                        text_color = '#6C757D'  # Medium gray
                     
                     ax1.text(j + 0.5, len(punch_times_grid) - 1 - i + 0.5, punch_time,
                            ha='center', va='center', fontsize=14, fontweight='bold',
@@ -656,6 +666,7 @@ class TimeClockAnalyzer:
             plt.Rectangle((0, 0), 1, 1, facecolor='#DAA520', label='Minor Delay (5-7 min) - Verbal Reminder'),
             plt.Rectangle((0, 0), 1, 1, facecolor='#FF6600', label='Major Delay (7-11 min) - Written Documentation'),
             plt.Rectangle((0, 0), 1, 1, facecolor='#DC143C', label='Significant Delay (>11 min) - Disciplinary Action'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#9932CC', label='Missed Out Punch'),
             plt.Rectangle((0, 0), 1, 1, facecolor='#F8F8F8', edgecolor='#34495E', label='Missing Punch Data'),
             plt.Rectangle((0, 0), 1, 1, facecolor='#D3D3D3', edgecolor='#34495E', label='Absent Day - Absence Tracking')
         ]
