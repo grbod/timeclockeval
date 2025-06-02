@@ -1,7 +1,7 @@
 ================================================================================
 EMPLOYEE TIME CLOCK ANALYSIS REPORT
 ================================================================================
-Analysis Date: 2025-05-31 01:08:02
+Analysis Date: 2025-06-01 01:02:13
 Data Source: timeclock.csv
 
 SUMMARY STATISTICS
@@ -43,7 +43,7 @@ DETAILED PERIOD ANALYSIS
 Period: 05/12 - 05/25
 ------------------------------
 Period Summary:
-  Average Anomaly Score: 15.6
+  Average Anomaly Score: 16.0
   Total Missed Days: 13
   High-Risk Employees: 5
   Employees with High Scores:
@@ -55,12 +55,13 @@ Period Summary:
 
 ANOMALY TYPE BREAKDOWN
 ----------------------------------------
-Irregular End Time: 26
+Irregular End Time: 27
 Missed Day: 13
 Late Arrival: 6
 Late Lunch Return: 6
 Irregular Lunch Departure: 6
 Incomplete Day: 5
+Date Mismatch: 1
 Extra Punches: 1
 
 ================================================================================
