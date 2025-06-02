@@ -361,7 +361,7 @@ class TimeClockAnalyzer:
                         'aft_out': ''
                     }
                     # Initialize with default colors (may be overridden for flagged days)
-                    default_color = '#F8D7DA' if flagged_for_multiple_punches else '#F8F8F8'
+                    default_color = '#FFB6C1' if flagged_for_multiple_punches else '#F8F8F8'
                     color_data[employee][day_key] = {
                         'morn_in': default_color,
                         'morn_out': default_color,
@@ -390,76 +390,121 @@ class TimeClockAnalyzer:
                     records = []  # No records to process for absent days
                 
                 if len(records) >= 1:
-                    # Morning punch pair
-                    morning_rec = records[0]
-                    punch_data[employee][day_key]['morn_in'] = morning_rec['in_time_str']
-                    punch_data[employee][day_key]['morn_out'] = morning_rec['out_time_str']
+                    # First punch pair - determine if morning or afternoon based on start time
+                    first_rec = records[0]
+                    first_punch_time = first_rec['in_time_minutes']
+                    
+                    # Check if first punch is before 11:00 AM (660 minutes from midnight)
+                    if first_punch_time < 660:  # Before 11:00 AM
+                        # Place in morning columns
+                        punch_data[employee][day_key]['morn_in'] = first_rec['in_time_str']
+                        punch_data[employee][day_key]['morn_out'] = first_rec['out_time_str']
+                        morning_rec = first_rec
+                    else:  # 11:00 AM or later
+                        # Place in afternoon columns
+                        punch_data[employee][day_key]['aft_in'] = first_rec['in_time_str']
+                        punch_data[employee][day_key]['aft_out'] = first_rec['out_time_str']
+                        afternoon_rec = first_rec
                     
                     # Skip color analysis for flagged multiple punch days - keep pink background
                     if not flagged_for_multiple_punches:
-                        # CHANGE REQUEST #5: Enhanced severity color classification for morning in
-                        morn_in_diff = abs(morning_rec['in_time_minutes'] - self.EXPECTED_MORNING_ARRIVAL)
-                        if morn_in_diff <= 5:
-                            color_data[employee][day_key]['morn_in'] = '#228B22'  # Green: Acceptable
-                        elif morn_in_diff <= 7:
-                            color_data[employee][day_key]['morn_in'] = '#DAA520'  # Yellow: Minor Delay
-                        elif morn_in_diff <= 11:
-                            color_data[employee][day_key]['morn_in'] = '#FF6600'  # Orange: Major Delay
-                        else:
-                            color_data[employee][day_key]['morn_in'] = '#DC143C'  # Red: Significant Delay
-                        
-                        # CHANGE REQUEST #5: Enhanced severity color classification for lunch departure
-                        morn_out_diff = abs(morning_rec['out_time_minutes'] - self.EXPECTED_LUNCH_DEPARTURE)
-                        if morn_out_diff <= 5:
-                            color_data[employee][day_key]['morn_out'] = '#228B22'  # Green: Acceptable
-                        elif morn_out_diff <= 7:
-                            color_data[employee][day_key]['morn_out'] = '#DAA520'  # Yellow: Minor Delay
-                        elif morn_out_diff <= 11:
-                            color_data[employee][day_key]['morn_out'] = '#FF6600'  # Orange: Major Delay
-                        else:
-                            color_data[employee][day_key]['morn_out'] = '#DC143C'  # Red: Significant Delay
-                        
-                        # PURPLE LOGIC FIX: Check for missed out punch (InDate != OutDate)
-                        if morning_rec['in_date'] != morning_rec['out_date']:
-                            color_data[employee][day_key]['morn_out'] = '#9932CC'  # Purple: Missed Out Punch
+                        # Apply color analysis based on where the first punch was placed
+                        if first_punch_time < 660:  # First punch was placed in morning columns
+                            # CHANGE REQUEST #5: Enhanced severity color classification for morning in
+                            morn_in_diff = abs(morning_rec['in_time_minutes'] - self.EXPECTED_MORNING_ARRIVAL)
+                            if morn_in_diff <= 5:
+                                color_data[employee][day_key]['morn_in'] = '#228B22'  # Green: Acceptable
+                            elif morn_in_diff <= 7:
+                                color_data[employee][day_key]['morn_in'] = '#DAA520'  # Yellow: Minor Delay
+                            elif morn_in_diff <= 11:
+                                color_data[employee][day_key]['morn_in'] = '#FF6600'  # Orange: Major Delay
+                            else:
+                                color_data[employee][day_key]['morn_in'] = '#DC143C'  # Red: Significant Delay
+                            
+                            # CHANGE REQUEST #5: Enhanced severity color classification for lunch departure
+                            morn_out_diff = abs(morning_rec['out_time_minutes'] - self.EXPECTED_LUNCH_DEPARTURE)
+                            if morn_out_diff <= 5:
+                                color_data[employee][day_key]['morn_out'] = '#228B22'  # Green: Acceptable
+                            elif morn_out_diff <= 7:
+                                color_data[employee][day_key]['morn_out'] = '#DAA520'  # Yellow: Minor Delay
+                            elif morn_out_diff <= 11:
+                                color_data[employee][day_key]['morn_out'] = '#FF6600'  # Orange: Major Delay
+                            else:
+                                color_data[employee][day_key]['morn_out'] = '#DC143C'  # Red: Significant Delay
+                            
+                            # PURPLE LOGIC FIX: Check for missed out punch (InDate != OutDate)
+                            if morning_rec['in_date'] != morning_rec['out_date']:
+                                color_data[employee][day_key]['morn_out'] = '#9932CC'  # Purple: Missed Out Punch
+                        else:  # First punch was placed in afternoon columns
+                            # For afternoon starters, use a more lenient comparison
+                            # Compare against expected lunch departure (12:00p) instead of lunch return (12:30p)
+                            aft_in_diff = abs(afternoon_rec['in_time_minutes'] - self.EXPECTED_LUNCH_DEPARTURE)
+                            if aft_in_diff <= 5:
+                                color_data[employee][day_key]['aft_in'] = '#228B22'  # Green: Acceptable
+                            elif aft_in_diff <= 7:
+                                color_data[employee][day_key]['aft_in'] = '#DAA520'  # Yellow: Minor Delay
+                            elif aft_in_diff <= 11:
+                                color_data[employee][day_key]['aft_in'] = '#FF6600'  # Orange: Major Delay
+                            else:
+                                color_data[employee][day_key]['aft_in'] = '#DC143C'  # Red: Significant Delay
+                            
+                            # Color end time
+                            aft_out_time = afternoon_rec['out_time_minutes']
+                            end_time_diff_1 = abs(aft_out_time - self.EXPECTED_END_TIME_1)
+                            end_time_diff_2 = abs(aft_out_time - self.EXPECTED_END_TIME_2)
+                            min_end_diff = min(end_time_diff_1, end_time_diff_2)
+                            
+                            if min_end_diff <= 5:
+                                color_data[employee][day_key]['aft_out'] = '#228B22'  # Green: Acceptable
+                            elif min_end_diff <= 7:
+                                color_data[employee][day_key]['aft_out'] = '#DAA520'  # Yellow: Minor Delay
+                            elif min_end_diff <= 11:
+                                color_data[employee][day_key]['aft_out'] = '#FF6600'  # Orange: Major Delay
+                            else:
+                                color_data[employee][day_key]['aft_out'] = '#DC143C'  # Red: Significant Delay
+                            
+                            # PURPLE LOGIC FIX: Check for missed out punch (InDate != OutDate)
+                            if afternoon_rec['in_date'] != afternoon_rec['out_date']:
+                                color_data[employee][day_key]['aft_out'] = '#9932CC'  # Purple: Missed Out Punch
                 
                 if len(records) >= 2:
-                    # Afternoon punch pair
-                    afternoon_rec = records[1]
-                    punch_data[employee][day_key]['aft_in'] = afternoon_rec['in_time_str']
-                    punch_data[employee][day_key]['aft_out'] = afternoon_rec['out_time_str']
-                    
-                    # Skip color analysis for flagged multiple punch days - keep pink background
-                    if not flagged_for_multiple_punches:
-                        # CHANGE REQUEST #5: Enhanced severity color classification for lunch return
-                        aft_in_diff = abs(afternoon_rec['in_time_minutes'] - self.EXPECTED_LUNCH_RETURN)
-                        if aft_in_diff <= 5:
-                            color_data[employee][day_key]['aft_in'] = '#228B22'  # Green: Acceptable
-                        elif aft_in_diff <= 7:
-                            color_data[employee][day_key]['aft_in'] = '#DAA520'  # Yellow: Minor Delay
-                        elif aft_in_diff <= 11:
-                            color_data[employee][day_key]['aft_in'] = '#FF6600'  # Orange: Major Delay
-                        else:
-                            color_data[employee][day_key]['aft_in'] = '#DC143C'  # Red: Significant Delay
+                    # Handle second punch pair - only if first punch was in morning
+                    if first_punch_time < 660:  # First punch was in morning, so this is afternoon
+                        afternoon_rec = records[1]
+                        punch_data[employee][day_key]['aft_in'] = afternoon_rec['in_time_str']
+                        punch_data[employee][day_key]['aft_out'] = afternoon_rec['out_time_str']
                         
-                        # CHANGE REQUEST #5: Enhanced severity color classification for end of day
-                        aft_out_time = afternoon_rec['out_time_minutes']
-                        end_time_diff_1 = abs(aft_out_time - self.EXPECTED_END_TIME_1)
-                        end_time_diff_2 = abs(aft_out_time - self.EXPECTED_END_TIME_2)
-                        min_end_diff = min(end_time_diff_1, end_time_diff_2)
-                        
-                        if min_end_diff <= 5:
-                            color_data[employee][day_key]['aft_out'] = '#228B22'  # Green: Acceptable
-                        elif min_end_diff <= 7:
-                            color_data[employee][day_key]['aft_out'] = '#DAA520'  # Yellow: Minor Delay
-                        elif min_end_diff <= 11:
-                            color_data[employee][day_key]['aft_out'] = '#FF6600'  # Orange: Major Delay
-                        else:
-                            color_data[employee][day_key]['aft_out'] = '#DC143C'  # Red: Significant Delay
-                        
-                        # PURPLE LOGIC FIX: Check for missed out punch (InDate != OutDate)
-                        if afternoon_rec['in_date'] != afternoon_rec['out_date']:
-                            color_data[employee][day_key]['aft_out'] = '#9932CC'  # Purple: Missed Out Punch
+                        # Skip color analysis for flagged multiple punch days - keep pink background
+                        if not flagged_for_multiple_punches:
+                            # CHANGE REQUEST #5: Enhanced severity color classification for lunch return
+                            aft_in_diff = abs(afternoon_rec['in_time_minutes'] - self.EXPECTED_LUNCH_RETURN)
+                            if aft_in_diff <= 5:
+                                color_data[employee][day_key]['aft_in'] = '#228B22'  # Green: Acceptable
+                            elif aft_in_diff <= 7:
+                                color_data[employee][day_key]['aft_in'] = '#DAA520'  # Yellow: Minor Delay
+                            elif aft_in_diff <= 11:
+                                color_data[employee][day_key]['aft_in'] = '#FF6600'  # Orange: Major Delay
+                            else:
+                                color_data[employee][day_key]['aft_in'] = '#DC143C'  # Red: Significant Delay
+                            
+                            # CHANGE REQUEST #5: Enhanced severity color classification for end of day
+                            aft_out_time = afternoon_rec['out_time_minutes']
+                            end_time_diff_1 = abs(aft_out_time - self.EXPECTED_END_TIME_1)
+                            end_time_diff_2 = abs(aft_out_time - self.EXPECTED_END_TIME_2)
+                            min_end_diff = min(end_time_diff_1, end_time_diff_2)
+                            
+                            if min_end_diff <= 5:
+                                color_data[employee][day_key]['aft_out'] = '#228B22'  # Green: Acceptable
+                            elif min_end_diff <= 7:
+                                color_data[employee][day_key]['aft_out'] = '#DAA520'  # Yellow: Minor Delay
+                            elif min_end_diff <= 11:
+                                color_data[employee][day_key]['aft_out'] = '#FF6600'  # Orange: Major Delay
+                            else:
+                                color_data[employee][day_key]['aft_out'] = '#DC143C'  # Red: Significant Delay
+                            
+                            # PURPLE LOGIC FIX: Check for missed out punch (InDate != OutDate)
+                            if afternoon_rec['in_date'] != afternoon_rec['out_date']:
+                                color_data[employee][day_key]['aft_out'] = '#9932CC'  # Purple: Missed Out Punch
         
         # Calculate optimal figure size based on data
         total_rows = sum(len(punch_data[emp]) for emp in employees)
@@ -559,7 +604,7 @@ class TimeClockAnalyzer:
                         continue  # Don't render any text for spacing rows
                     
                     # Handle flagged multiple punch notation
-                    if color == '#F8D7DA' and j == 3:  # Pink background on last column (End of Day)
+                    if color == '#FFB6C1' and j == 3:  # Pink background on last column (End of Day)
                         # Add flagged notation in italic dark gray
                         ax1.text(j + 0.5, len(punch_times_grid) - 1 - i + 0.5, 
                                'Flagged: Additional\nPunches Detected',
@@ -578,7 +623,7 @@ class TimeClockAnalyzer:
                         text_color = 'white'  # White text for contrast
                     elif color == '#9932CC':  # Purple: Missed Out Punch
                         text_color = 'white'  # White text for contrast
-                    elif color == '#F8D7DA':  # Pink: Multiple punches flagged
+                    elif color == '#FFB6C1':  # Pink: Multiple punches flagged
                         text_color = '#495057'  # Dark gray for readability
                     elif color == '#D3D3D3':  # Gray: Absent days
                         text_color = '#6C757D'  # Medium gray for N/A text
@@ -690,7 +735,7 @@ class TimeClockAnalyzer:
             plt.Rectangle((0, 0), 1, 1, facecolor='#FF6600', label='Major Delay (7-11 min) - Written Documentation'),
             plt.Rectangle((0, 0), 1, 1, facecolor='#DC143C', label='Significant Delay (>11 min) - Disciplinary Action'),
             plt.Rectangle((0, 0), 1, 1, facecolor='#9932CC', label='Missed Out Punch'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#F8D7DA', edgecolor='#34495E', label='Flagged: Additional Punches Detected'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#FFB6C1', edgecolor='#34495E', label='Flagged: Additional Punches Detected'),
             plt.Rectangle((0, 0), 1, 1, facecolor='#F8F8F8', edgecolor='#34495E', label='Missing Punch Data'),
             plt.Rectangle((0, 0), 1, 1, facecolor='#D3D3D3', edgecolor='#34495E', label='Absent Day - Absence Tracking')
         ]
