@@ -1,17 +1,22 @@
 ================================================================================
 EMPLOYEE TIME CLOCK ANALYSIS REPORT
 ================================================================================
-Analysis Date: 2025-06-01 01:02:13
+Analysis Date: 2025-06-01 23:27:13
 Data Source: timeclock.csv
 
 SUMMARY STATISTICS
 ----------------------------------------
-Total Employees Analyzed: 18
+Total Employees Analyzed: 19
 Analysis Periods: 1
 Period Range: 05/12 - 05/25 to 05/12 - 05/25
 
 EMPLOYEES REQUIRING IMMEDIATE ATTENTION
 --------------------------------------------------
+• Shipping Employee
+  Average Score: 92.0
+  High-Score Periods: 1/1
+  Total Anomalies: 10
+
 • Santos, Clayton
   Average Score: 90.0
   High-Score Periods: 1/1
@@ -32,21 +37,17 @@ EMPLOYEES REQUIRING IMMEDIATE ATTENTION
   High-Score Periods: 1/1
   Total Anomalies: 4
 
-• Liberty, Timm
-  Average Score: 21.0
-  High-Score Periods: 1/1
-  Total Anomalies: 6
-
 DETAILED PERIOD ANALYSIS
 ----------------------------------------
 
 Period: 05/12 - 05/25
 ------------------------------
 Period Summary:
-  Average Anomaly Score: 16.0
-  Total Missed Days: 13
-  High-Risk Employees: 5
+  Average Anomaly Score: 20.0
+  Total Missed Days: 22
+  High-Risk Employees: 6
   Employees with High Scores:
+    • Shipping Employee: 92 points
     • Santos, Clayton: 90 points
     • Felice, Aldo: 36 points
     • King, Leslie: 35 points
@@ -56,13 +57,13 @@ Period Summary:
 ANOMALY TYPE BREAKDOWN
 ----------------------------------------
 Irregular End Time: 27
-Missed Day: 13
+Missed Day: 22
 Late Arrival: 6
 Late Lunch Return: 6
 Irregular Lunch Departure: 6
 Incomplete Day: 5
+Extra Punches: 2
 Date Mismatch: 1
-Extra Punches: 1
 
 ================================================================================
 END OF REPORT
