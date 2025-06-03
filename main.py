@@ -436,9 +436,8 @@ class TimeClockAnalyzer:
                             if morning_rec['in_date'] != morning_rec['out_date']:
                                 color_data[employee][day_key]['morn_out'] = '#9932CC'  # Purple: Missed Out Punch
                         else:  # First punch was placed in afternoon columns
-                            # For afternoon starters, use a more lenient comparison
-                            # Compare against expected lunch departure (12:00p) instead of lunch return (12:30p)
-                            aft_in_diff = abs(afternoon_rec['in_time_minutes'] - self.EXPECTED_LUNCH_DEPARTURE)
+                            # For afternoon starters, compare against lunch return like normal
+                            aft_in_diff = abs(afternoon_rec['in_time_minutes'] - self.EXPECTED_LUNCH_RETURN)
                             if aft_in_diff <= 5:
                                 color_data[employee][day_key]['aft_in'] = '#228B22'  # Green: Acceptable
                             elif aft_in_diff <= 7:
