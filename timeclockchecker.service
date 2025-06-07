@@ -1,0 +1,15 @@
+[Unit]
+Description=Streamlit App - TimeClockChecker
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/var/www/timeclockchecker
+Environment=PATH=/var/www/timeclockchecker/venv/bin
+ExecStart=/var/www/timeclockchecker/venv/bin/streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

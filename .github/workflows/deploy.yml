@@ -1,0 +1,37 @@
+name: Deploy Streamlit App
+
+on:
+  push:
+    branches: [ main, development ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          # Navigate to app directory
+          cd /var/www/timeclockchecker
+          
+          # Pull latest changes
+          git pull origin ${{ github.ref_name }}
+          
+          # Activate virtual environment and install/update dependencies
+          source venv/bin/activate
+          pip install -r requirements.txt
+          
+          # Restart systemd service
+          sudo systemctl restart timeclockchecker
+          
+          # Check service status
+          sudo systemctl status timeclockchecker
