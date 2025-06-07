@@ -17,9 +17,9 @@ chmod +x setup-server.sh
 ### 2. GitHub Secrets
 Add these secrets to your GitHub repository settings:
 
-- `HOST`: Your droplet's IP address or domain
+- `HOST`: Your droplet's IP address (e.g., `203.0.113.1`)
 - `USERNAME`: Your server username (usually `root` or `ubuntu`)
-- `SSH_KEY`: Your private SSH key content
+- `SSH_KEY`: Your private SSH key content (the entire key including headers)
 
 ### 3. Update Repository URL
 Edit `setup-server.sh` and replace:
@@ -34,8 +34,15 @@ git clone https://github.com/yourusername/timeclockchecker.git
 # Check service status
 sudo systemctl status timeclockchecker
 
-# View logs
+# View logs (real-time)
 sudo journalctl -u timeclockchecker -f
+
+# View recent logs
+sudo journalctl -u timeclockchecker --since "1 hour ago"
+
+# View application logs
+sudo tail -f /var/log/timeclockchecker.log
+sudo tail -f /var/log/timeclockchecker.error.log
 
 # Restart service
 sudo systemctl restart timeclockchecker
@@ -90,6 +97,10 @@ For each additional Streamlit app:
 ```bash
 # Check systemd logs
 sudo journalctl -u timeclockchecker -f
+
+# Check application logs
+sudo tail -20 /var/log/timeclockchecker.log
+sudo tail -20 /var/log/timeclockchecker.error.log
 
 # Check if port is in use
 sudo netstat -tlnp | grep 8501

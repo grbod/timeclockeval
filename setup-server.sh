@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Server Setup Script for Streamlit App with Nginx, Let's Encrypt, and PM2
+# Server Setup Script for Streamlit App with Nginx, Let's Encrypt, and systemd
 # Usage: bash setup-server.sh yourdomain.com timeclockchecker
 
 set -e
@@ -12,6 +12,24 @@ APP_PORT=${3:-8501}
 if [ -z "$DOMAIN" ] || [ -z "$APP_NAME" ]; then
     echo "Usage: bash setup-server.sh <domain> <app_name> [port]"
     echo "Example: bash setup-server.sh timeclock.example.com timeclockchecker 8501"
+    exit 1
+fi
+
+# Validate domain format
+if ! echo "$DOMAIN" | grep -E '^[a-zA-Z0-9][a-zA-Z0-9.-]+[a-zA-Z0-9]$' > /dev/null; then
+    echo "Error: Invalid domain format"
+    exit 1
+fi
+
+# Validate app name (alphanumeric and hyphens only)
+if ! echo "$APP_NAME" | grep -E '^[a-zA-Z0-9-]+$' > /dev/null; then
+    echo "Error: App name must contain only alphanumeric characters and hyphens"
+    exit 1
+fi
+
+# Check if running as root
+if [ "$EUID" -eq 0 ]; then
+    echo "Error: Do not run this script as root. Run as a regular user with sudo privileges."
     exit 1
 fi
 
@@ -28,6 +46,16 @@ sudo apt install -y nginx certbot python3-certbot-nginx git python3-pip python3-
 # Install required Python packages
 echo "Installing Python development packages..."
 sudo apt install -y python3-dev python3-setuptools
+
+# Configure firewall early for security
+echo "Configuring firewall..."
+sudo ufw --force reset
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22
+sudo ufw allow 80
+sudo ufw allow 443
+sudo ufw --force enable
 
 # Create app directory
 echo "Creating application directory..."
@@ -58,13 +86,21 @@ Type=simple
 User=$USER
 WorkingDirectory=/var/www/$APP_NAME
 Environment=PATH=/var/www/$APP_NAME/venv/bin
+Environment=PYTHONPATH=/var/www/$APP_NAME
 ExecStart=/var/www/$APP_NAME/venv/bin/streamlit run app.py --server.port $APP_PORT --server.address 0.0.0.0
 Restart=always
 RestartSec=10
+StandardOutput=append:/var/log/$APP_NAME.log
+StandardError=append:/var/log/$APP_NAME.error.log
 
 [Install]
 WantedBy=multi-user.target
 EOF
+
+# Create log files with proper permissions
+echo "Setting up logging..."
+sudo touch /var/log/$APP_NAME.log /var/log/$APP_NAME.error.log
+sudo chown $USER:$USER /var/log/$APP_NAME.log /var/log/$APP_NAME.error.log
 
 # Enable and start the service
 echo "Starting systemd service..."
@@ -100,18 +136,11 @@ sudo systemctl reload nginx
 
 # Setup SSL with Let's Encrypt
 echo "Setting up SSL certificate..."
-sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email admin@$DOMAIN
+sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos --email webmaster@$DOMAIN || echo 'Warning: SSL setup failed - you may need to configure manually'
 
 # Setup auto-renewal
 echo "Setting up SSL auto-renewal..."
 sudo systemctl enable certbot.timer
-
-# Configure firewall
-echo "Configuring firewall..."
-sudo ufw allow 22
-sudo ufw allow 80
-sudo ufw allow 443
-sudo ufw --force enable
 
 echo ""
 echo "✅ Setup complete!"
@@ -124,7 +153,7 @@ echo ""
 echo "Next steps:"
 echo "1. Update your GitHub repository URL in this script"
 echo "2. Add these secrets to your GitHub repository:"
-echo "   - HOST: $DOMAIN"
+echo "   - HOST: (your server IP address)"
 echo "   - USERNAME: $USER"
 echo "   - SSH_KEY: (your private SSH key)"
 echo "3. Push changes to trigger deployment"

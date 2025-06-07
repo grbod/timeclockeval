@@ -4,12 +4,15 @@ After=network.target
 
 [Service]
 Type=simple
-User=ubuntu
+User=USER_PLACEHOLDER
 WorkingDirectory=/var/www/timeclockchecker
 Environment=PATH=/var/www/timeclockchecker/venv/bin
+Environment=PYTHONPATH=/var/www/timeclockchecker
 ExecStart=/var/www/timeclockchecker/venv/bin/streamlit run app.py --server.port 8501 --server.address 0.0.0.0
 Restart=always
 RestartSec=10
+StandardOutput=append:/var/log/timeclockchecker.log
+StandardError=append:/var/log/timeclockchecker.error.log
 
 [Install]
 WantedBy=multi-user.target
