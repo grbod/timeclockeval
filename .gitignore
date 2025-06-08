@@ -57,7 +57,8 @@ ENV/
 # Claude cache
 .claude/
 
-# Generated output files (keep samples but ignore future generations)
-# timeclock_*.png
-# timeclock_*.pdf
-# timeclock_analysis_report.txt
+# Project-specific data and output files to exclude
+timeclock.csv
+timeclock_analysis_report.txt
+timeclock_detailed_heatmap.pdf
+timeclock_detailed_heatmap.png
