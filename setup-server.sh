@@ -62,10 +62,10 @@ echo "Creating application directory..."
 sudo mkdir -p /var/www/$APP_NAME
 sudo chown $USER:$USER /var/www/$APP_NAME
 
-# Clone repository (you'll need to replace with your actual repo)
+# Clone repository
 echo "Cloning repository..."
 cd /var/www
-git clone https://github.com/yourusername/$APP_NAME.git
+git clone https://github.com/grbod/timeclockeval.git $APP_NAME
 cd $APP_NAME
 
 # Create virtual environment and install dependencies
