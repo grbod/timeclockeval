@@ -27,11 +27,7 @@ if ! echo "$APP_NAME" | grep -E '^[a-zA-Z0-9-]+$' > /dev/null; then
     exit 1
 fi
 
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then
-    echo "Error: Do not run this script as root. Run as a regular user with sudo privileges."
-    exit 1
-fi
+# Allow running as root for simplified deployment
 
 echo "Setting up server for $APP_NAME at $DOMAIN on port $APP_PORT"
 
