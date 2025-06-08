@@ -3,6 +3,11 @@
 Streamlit Frontend for Employee Time Clock Analysis System
 """
 
+# Configure matplotlib for headless server operation
+import matplotlib
+matplotlib.use('Agg')  # Must be before importing pyplot
+import matplotlib.pyplot as plt
+
 import streamlit as st
 import pandas as pd
 import tempfile

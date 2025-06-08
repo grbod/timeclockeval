@@ -43,6 +43,15 @@ sudo apt install -y nginx certbot python3-certbot-nginx git python3-pip python3-
 echo "Installing Python development packages..."
 sudo apt install -y python3-dev python3-setuptools
 
+# Install matplotlib system dependencies
+echo "Installing matplotlib dependencies..."
+sudo apt install -y python3-tk tk-dev libfreetype6-dev pkg-config
+
+# Install fonts to prevent matplotlib hanging
+echo "Installing fonts..."
+sudo apt install -y fonts-liberation fonts-dejavu-core fontconfig
+fc-cache -f -v
+
 # Configure firewall early for security
 echo "Configuring firewall..."
 sudo ufw --force reset
