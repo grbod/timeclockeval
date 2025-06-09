@@ -14,6 +14,8 @@ chmod +x setup-server.sh
 ./setup-server.sh timeclock.yourdomain.com timeclockchecker
 ```
 
+**Note**: The setup script will automatically remove any previous installation of the app (including systemd service, nginx config, app directory, and logs) before setting up the new installation. This ensures a clean deployment every time.
+
 ### 2. GitHub Secrets
 Add these secrets to your GitHub repository settings:
 

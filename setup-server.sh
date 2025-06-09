@@ -31,6 +31,49 @@ fi
 
 echo "Setting up server for $APP_NAME at $DOMAIN on port $APP_PORT"
 
+# Check for and remove previous installation
+if [ -d "/var/www/$APP_NAME" ] || [ -f "/etc/systemd/system/$APP_NAME.service" ] || [ -f "/etc/nginx/sites-available/$APP_NAME" ]; then
+    echo "Found previous installation. Removing..."
+    
+    # Stop and disable service if it exists
+    if systemctl list-units --all | grep -q "$APP_NAME.service"; then
+        echo "Stopping and disabling existing service..."
+        sudo systemctl stop $APP_NAME || true
+        sudo systemctl disable $APP_NAME || true
+    fi
+    
+    # Remove systemd service
+    if [ -f "/etc/systemd/system/$APP_NAME.service" ]; then
+        echo "Removing systemd service..."
+        sudo rm -f /etc/systemd/system/$APP_NAME.service
+        sudo systemctl daemon-reload
+    fi
+    
+    # Remove nginx configuration
+    if [ -f "/etc/nginx/sites-enabled/$APP_NAME" ]; then
+        echo "Removing nginx configuration..."
+        sudo rm -f /etc/nginx/sites-enabled/$APP_NAME
+    fi
+    if [ -f "/etc/nginx/sites-available/$APP_NAME" ]; then
+        sudo rm -f /etc/nginx/sites-available/$APP_NAME
+    fi
+    sudo nginx -t && sudo systemctl reload nginx || true
+    
+    # Remove application directory
+    if [ -d "/var/www/$APP_NAME" ]; then
+        echo "Removing application directory..."
+        sudo rm -rf /var/www/$APP_NAME
+    fi
+    
+    # Remove log files
+    if [ -f "/var/log/$APP_NAME.log" ] || [ -f "/var/log/$APP_NAME.error.log" ]; then
+        echo "Removing log files..."
+        sudo rm -f /var/log/$APP_NAME.log /var/log/$APP_NAME.error.log
+    fi
+    
+    echo "Previous installation removed."
+fi
+
 # Update system
 echo "Updating system packages..."
 sudo apt update && sudo apt upgrade -y
