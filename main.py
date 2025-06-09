@@ -8,10 +8,15 @@ extraordinary patterns and anomalies requiring management attention.
 
 import pandas as pd
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend for lower memory
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime, timedelta
 from collections import defaultdict
+import gc
+import os
+from PyPDF2 import PdfMerger
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -316,7 +321,7 @@ class TimeClockAnalyzer:
         return True
     
     def generate_detailed_punch_heatmap(self):
-        """Generate enhanced detailed punch-by-punch heat map with professional styling."""
+        """Generate paginated heat maps with memory optimization."""
         if self.processed_data is None or len(self.processed_data) == 0:
             print("No processed data to visualize")
             return
@@ -330,22 +335,24 @@ class TimeClockAnalyzer:
         # Create data structure for punch details
         punch_data = {}
         color_data = {}
+        total_hours_data = {}
         
-        # Initialize data structure
+        # Process all data first (this is relatively memory efficient)
         for employee in employees:
             punch_data[employee] = {}
             color_data[employee] = {}
+            total_hours_data[employee] = {}
             
             # Get employee's data
             emp_data = self.processed_data[self.processed_data['employee'] == employee]
             employee_dates = set(emp_data['date'].unique())
             
-            # CHANGE REQUEST #4: Process ALL dates for this employee
+            # Process ALL dates for this employee
             for date in all_dates:
                 day_name = date.strftime('%a')  # Mon, Tue, Wed, Thu, Fri
                 day_key = f"{date.strftime('%m/%d')} ({day_name})"
                 
-                # CHANGE REQUEST #4: Check if employee worked on this date
+                # Check if employee worked on this date
                 if date in employee_dates:
                     # Employee worked on this date - process normally
                     day_data = emp_data[emp_data['date'] == date].sort_values('in_time_minutes')
@@ -372,7 +379,7 @@ class TimeClockAnalyzer:
                     # Process punch pairs for this day
                     records = day_data.to_dict('records')
                 else:
-                    # CHANGE REQUEST #4: Employee was absent - show N/A with gray background
+                    # Employee was absent - show N/A with gray background
                     flagged_for_multiple_punches = False  # No flagging for absent days
                     
                     punch_data[employee][day_key] = {
@@ -389,6 +396,7 @@ class TimeClockAnalyzer:
                     }
                     records = []  # No records to process for absent days
                 
+                # Process records (same logic as before)
                 if len(records) >= 1:
                     # First punch pair - determine if morning or afternoon based on start time
                     first_rec = records[0]
@@ -410,7 +418,7 @@ class TimeClockAnalyzer:
                     if not flagged_for_multiple_punches:
                         # Apply color analysis based on where the first punch was placed
                         if first_punch_time < 660:  # First punch was placed in morning columns
-                            # CHANGE REQUEST #5: Enhanced severity color classification for morning in
+                            # Enhanced severity color classification for morning in
                             morn_in_diff = abs(morning_rec['in_time_minutes'] - self.EXPECTED_MORNING_ARRIVAL)
                             if morn_in_diff <= 5:
                                 color_data[employee][day_key]['morn_in'] = '#228B22'  # Green: Acceptable
@@ -421,7 +429,7 @@ class TimeClockAnalyzer:
                             else:
                                 color_data[employee][day_key]['morn_in'] = '#DC143C'  # Red: Significant Delay
                             
-                            # CHANGE REQUEST #5: Enhanced severity color classification for lunch departure
+                            # Enhanced severity color classification for lunch departure
                             morn_out_diff = abs(morning_rec['out_time_minutes'] - self.EXPECTED_LUNCH_DEPARTURE)
                             if morn_out_diff <= 5:
                                 color_data[employee][day_key]['morn_out'] = '#228B22'  # Green: Acceptable
@@ -432,7 +440,7 @@ class TimeClockAnalyzer:
                             else:
                                 color_data[employee][day_key]['morn_out'] = '#DC143C'  # Red: Significant Delay
                             
-                            # PURPLE LOGIC FIX: Check for missed out punch (InDate != OutDate)
+                            # Check for missed out punch (InDate != OutDate)
                             if morning_rec['in_date'] != morning_rec['out_date']:
                                 color_data[employee][day_key]['morn_out'] = '#9932CC'  # Purple: Missed Out Punch
                         else:  # First punch was placed in afternoon columns
@@ -462,7 +470,7 @@ class TimeClockAnalyzer:
                             else:
                                 color_data[employee][day_key]['aft_out'] = '#DC143C'  # Red: Significant Delay
                             
-                            # PURPLE LOGIC FIX: Check for missed out punch (InDate != OutDate)
+                            # Check for missed out punch (InDate != OutDate)
                             if afternoon_rec['in_date'] != afternoon_rec['out_date']:
                                 color_data[employee][day_key]['aft_out'] = '#9932CC'  # Purple: Missed Out Punch
                 
@@ -475,7 +483,7 @@ class TimeClockAnalyzer:
                         
                         # Skip color analysis for flagged multiple punch days - keep pink background
                         if not flagged_for_multiple_punches:
-                            # CHANGE REQUEST #5: Enhanced severity color classification for lunch return
+                            # Enhanced severity color classification for lunch return
                             aft_in_diff = abs(afternoon_rec['in_time_minutes'] - self.EXPECTED_LUNCH_RETURN)
                             if aft_in_diff <= 5:
                                 color_data[employee][day_key]['aft_in'] = '#228B22'  # Green: Acceptable
@@ -486,7 +494,7 @@ class TimeClockAnalyzer:
                             else:
                                 color_data[employee][day_key]['aft_in'] = '#DC143C'  # Red: Significant Delay
                             
-                            # CHANGE REQUEST #5: Enhanced severity color classification for end of day
+                            # Enhanced severity color classification for end of day
                             aft_out_time = afternoon_rec['out_time_minutes']
                             end_time_diff_1 = abs(aft_out_time - self.EXPECTED_END_TIME_1)
                             end_time_diff_2 = abs(aft_out_time - self.EXPECTED_END_TIME_2)
@@ -501,46 +509,128 @@ class TimeClockAnalyzer:
                             else:
                                 color_data[employee][day_key]['aft_out'] = '#DC143C'  # Red: Significant Delay
                             
-                            # PURPLE LOGIC FIX: Check for missed out punch (InDate != OutDate)
+                            # Check for missed out punch (InDate != OutDate)
                             if afternoon_rec['in_date'] != afternoon_rec['out_date']:
                                 color_data[employee][day_key]['aft_out'] = '#9932CC'  # Purple: Missed Out Punch
+                
+                # Calculate total hours for this day
+                # Get ALL records for this employee on this date to handle irregular days
+                date_str = date.strftime('%m/%d/%y') if date in employee_dates else None
+                if date_str:
+                    # Get all punch pairs for this specific date
+                    all_day_records = day_data if date in employee_dates else []
+                    total_minutes = 0
+                    
+                    # Sum up all punch pairs
+                    for record in records:
+                        if record['in_time_minutes'] is not None and record['out_time_minutes'] is not None:
+                            # Calculate time worked for this punch pair
+                            minutes_worked = record['out_time_minutes'] - record['in_time_minutes']
+                            # Handle case where out punch is past midnight
+                            if minutes_worked < 0:
+                                minutes_worked += 1440  # Add 24 hours
+                            total_minutes += minutes_worked
+                    
+                    # Convert to hours:minutes format
+                    hours = total_minutes // 60
+                    minutes = total_minutes % 60
+                    total_hours_data[employee][day_key] = f"{hours}:{minutes:02d}"
+                else:
+                    # Absent day
+                    total_hours_data[employee][day_key] = "0:00"
         
-        # Calculate optimal figure size based on data
-        total_rows = sum(len(punch_data[emp]) for emp in employees)
-        cell_height = 0.8  # Height per cell
-        cell_width = 2.5   # Width per cell
+        # Now generate pages
+        employees_per_page = 2
+        total_pages = (len(employees) + employees_per_page - 1) // employees_per_page
         
-        # Create significantly larger figure with better proportions
-        fig_width = max(20, len(['Morn In', 'Morn Out', 'Afternoon In', 'Afternoon Out']) * cell_width + 6)
-        fig_height = max(24, total_rows * cell_height + 8)
+        # List to store PDF files
+        temp_pdf_files = []
         
-        # Create the enhanced heat map with much larger size
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(fig_width, fig_height), 
-                                      gridspec_kw={'height_ratios': [3, 1]})
+        print(f"Generating {total_pages} pages for {len(employees)} employees...")
         
-        # Set professional styling
-        plt.style.use('default')
-        fig.patch.set_facecolor('white')
+        for page_num in range(total_pages):
+            start_idx = page_num * employees_per_page
+            end_idx = min(start_idx + employees_per_page, len(employees))
+            employees_subset = employees[start_idx:end_idx]
+            
+            print(f"  Processing page {page_num + 1}/{total_pages}: {', '.join(employees_subset)}")
+            
+            # Generate page and save as temporary PDF
+            temp_filename = f'temp_page_{page_num + 1}.pdf'
+            self.generate_detailed_punch_heatmap_page(
+                employees_subset, page_num + 1, total_pages,
+                punch_data, color_data, total_hours_data, temp_filename
+            )
+            temp_pdf_files.append(temp_filename)
+            
+            # Clear memory
+            plt.close('all')
+            gc.collect()
         
-        # PRIMARY VISUALIZATION: Enhanced Detailed Punch Heat Map
-        # CHANGE REQUEST #5: Updated title with enhanced severity levels
-        ax1.set_title('EMPLOYEE TIME CLOCK - DETAILED PUNCH ANALYSIS\n' +
-                     'Color Coding: 🟢 Acceptable (±5min) | 🟡 Minor (5-7min) | 🟠 Major (7-11min) | 🔴 Significant (>11min)\n' +
-                     'Management Actions: Green=None | Yellow=Verbal | Orange=Written | Red=Disciplinary | Gray=Absence Tracking', 
-                     fontsize=18, fontweight='bold', pad=30, color='#2C3E50')
+        # Combine all PDFs into one
+        print("Combining pages into single PDF...")
+        merger = PdfMerger()
         
+        for pdf_file in temp_pdf_files:
+            if os.path.exists(pdf_file):
+                merger.append(pdf_file)
+        
+        # Save final combined PDF
+        merger.write('timeclock_detailed_heatmap.pdf')
+        merger.close()
+        
+        # Clean up temporary files
+        for pdf_file in temp_pdf_files:
+            if os.path.exists(pdf_file):
+                os.remove(pdf_file)
+        
+        print("Enhanced heat map saved:")
+        print("  - timeclock_detailed_heatmap.pdf (Multi-page PDF)")
+    
+    def generate_detailed_punch_heatmap_page(self, employees_subset, page_num, total_pages, punch_data, color_data, total_hours_data, output_filename):
+        """Generate a single page of the heat map for a subset of employees."""
         # Enhanced column headers
-        columns = ['Morning\nArrival', 'Lunch\nDeparture', 'Lunch\nReturn', 'End of\nDay']
-        column_positions = [0.5, 1.5, 2.5, 3.5]
+        columns = ['Morning\nArrival', 'Lunch\nDeparture', 'Lunch\nReturn', 'End of\nDay', 'Total\nHours']
+        column_positions = [0.5, 1.5, 2.5, 3.5, 4.25]  # Total hours column is narrower
         
-        # Prepare data for enhanced heatmap
+        # Prepare data for this page only
         all_employees_expanded = []
         punch_times_grid = []
         colors_grid = []
         employee_separators = []
         
+        # Calculate figure size for just these employees
+        total_rows = sum(len(punch_data[emp]) for emp in employees_subset if emp in punch_data)
+        # Add spacing rows
+        if len(employees_subset) > 1:
+            total_rows += len(employees_subset) - 1
+        
+        cell_height = 0.8  # Height per cell
+        cell_width = 2.5   # Width per cell
+        
+        # Smaller figure for 2 employees
+        fig_width = max(16, len(columns) * cell_width + 4)
+        fig_height = max(8, total_rows * cell_height + 4)
+        
+        # Create figure with only one subplot (no secondary heat map for memory efficiency)
+        fig, ax1 = plt.subplots(1, 1, figsize=(fig_width, fig_height))
+        
+        # Set professional styling
+        plt.style.use('default')
+        fig.patch.set_facecolor('white')
+        
+        # Title with page info
+        ax1.set_title(f'EMPLOYEE TIME CLOCK - DETAILED PUNCH ANALYSIS (Page {page_num} of {total_pages})\n' +
+                     'Color Coding: 🟢 Acceptable (±5min) | 🟡 Minor (5-7min) | 🟠 Major (7-11min) | 🔴 Significant (>11min)\n' +
+                     'Management Actions: Green=None | Yellow=Verbal | Orange=Written | Red=Disciplinary | Gray=Absence Tracking', 
+                     fontsize=14, fontweight='bold', pad=20, color='#2C3E50')
+        
+        # Build grid data for subset of employees
         row_index = 0
-        for emp_idx, employee in enumerate(employees):
+        for emp_idx, employee in enumerate(employees_subset):
+            if employee not in punch_data:
+                continue
+                
             employee_days = sorted([day for day in punch_data[employee].keys()])
             employee_start_row = row_index
             
@@ -552,25 +642,45 @@ class TimeClockAnalyzer:
                     punch_data[employee][day]['morn_in'],
                     punch_data[employee][day]['morn_out'],
                     punch_data[employee][day]['aft_in'],
-                    punch_data[employee][day]['aft_out']
+                    punch_data[employee][day]['aft_out'],
+                    total_hours_data[employee][day]  # Add total hours
                 ]
+                
+                # Determine color for total hours based on value
+                total_hours_str = total_hours_data[employee][day]
+                if total_hours_str == "0:00":
+                    # Absent day
+                    hours_color = '#D3D3D3'  # Gray for absent
+                else:
+                    # Parse hours and minutes
+                    hours_parts = total_hours_str.split(':')
+                    total_hours_float = float(hours_parts[0]) + float(hours_parts[1])/60
+                    
+                    if total_hours_float < 7.5:
+                        hours_color = '#DC143C'  # Red for under-hours
+                    elif total_hours_float > 8.5:
+                        hours_color = '#34495E'  # Dark gray background for overtime
+                    else:
+                        hours_color = '#FFFFFF'  # White background for normal hours
+                
                 day_colors = [
                     color_data[employee][day]['morn_in'],
                     color_data[employee][day]['morn_out'],
                     color_data[employee][day]['aft_in'],
-                    color_data[employee][day]['aft_out']
+                    color_data[employee][day]['aft_out'],
+                    hours_color  # Add color for total hours
                 ]
                 
                 punch_times_grid.append(day_punches)
                 colors_grid.append(day_colors)
                 row_index += 1
             
-            # CHANGE REQUEST #3: Add visual spacing between employees (except after last employee)
-            if emp_idx < len(employees) - 1:
+            # Add visual spacing between employees (except after last employee)
+            if emp_idx < len(employees_subset) - 1:
                 # Add spacing row - empty with white background
                 all_employees_expanded.append("")  # Empty label for spacing row
-                punch_times_grid.append(["", "", "", ""])  # Empty punch data
-                colors_grid.append(["white", "white", "white", "white"])  # White background
+                punch_times_grid.append(["", "", "", "", ""])  # Empty punch data with 5 columns
+                colors_grid.append(["white", "white", "white", "white", "white"])  # White background for 5 columns
                 row_index += 1
             
             # Mark employee separator
@@ -579,26 +689,42 @@ class TimeClockAnalyzer:
         # Create the enhanced heatmap with larger cells and better spacing
         for i, (row_punches, row_colors) in enumerate(zip(punch_times_grid, colors_grid)):
             for j, (punch_time, color) in enumerate(zip(row_punches, row_colors)):
-                # CHANGE REQUEST #3: Handle spacing rows without borders for clean separation
+                # Handle spacing rows without borders for clean separation
                 if color == 'white':
                     # Spacing row - no border, clean white space
-                    rect = plt.Rectangle((j + 0.02, len(punch_times_grid) - 1 - i + 0.02), 
-                                       0.96, 0.96,
-                                       facecolor=color,
-                                       edgecolor='white', linewidth=0,
-                                       alpha=1.0)
+                    if j == 4:  # Narrower column for total hours
+                        rect = plt.Rectangle((j + 0.02, len(punch_times_grid) - 1 - i + 0.02), 
+                                           0.48, 0.96,  # Half width for spacing in total hours column
+                                           facecolor=color,
+                                           edgecolor='white', linewidth=0,
+                                           alpha=1.0)
+                    else:
+                        rect = plt.Rectangle((j + 0.02, len(punch_times_grid) - 1 - i + 0.02), 
+                                           0.96, 0.96,
+                                           facecolor=color,
+                                           edgecolor='white', linewidth=0,
+                                           alpha=1.0)
                 else:
-                    # Regular data cell
-                    rect = plt.Rectangle((j + 0.02, len(punch_times_grid) - 1 - i + 0.02), 
-                                       0.96, 0.96,  # Slightly smaller than 1 to create padding
-                                       facecolor=color,
-                                       edgecolor='#34495E', linewidth=1.5,
-                                       alpha=0.9)
+                    # Check if this is the total hours column
+                    if j == 4:  # Total hours column
+                        # Special formatting for total hours with reduced width
+                        rect = plt.Rectangle((j + 0.02, len(punch_times_grid) - 1 - i + 0.02), 
+                                           0.48, 0.96,  # Half width (0.48 instead of 0.96)
+                                           facecolor=color,
+                                           edgecolor='#34495E', linewidth=2.0,  # Bold dark gray border
+                                           alpha=1.0)
+                    else:
+                        # Regular data cell
+                        rect = plt.Rectangle((j + 0.02, len(punch_times_grid) - 1 - i + 0.02), 
+                                           0.96, 0.96,  # Slightly smaller than 1 to create padding
+                                           facecolor=color,
+                                           edgecolor='#34495E', linewidth=1.5,
+                                           alpha=0.9)
                 ax1.add_patch(rect)
                 
                 # Add punch time text with enhanced readability
                 if punch_time:
-                    # CHANGE REQUEST #3: Skip text rendering for spacing rows (white background)
+                    # Skip text rendering for spacing rows (white background)
                     if color == 'white':
                         continue  # Don't render any text for spacing rows
                     
@@ -611,30 +737,47 @@ class TimeClockAnalyzer:
                                style='italic', color='#495057', fontweight='normal')
                         continue  # Skip normal punch time rendering for this cell
                     
-                    # CHANGE REQUEST #5: Determine text color based on new color scheme
-                    if color == '#228B22':  # Green: Acceptable
-                        text_color = '#2C3E50'  # Dark text for readability
-                    elif color == '#DAA520':  # Yellow: Minor Delay
-                        text_color = '#2C3E50'  # Dark text for readability
-                    elif color == '#FF6600':  # Orange: Major Delay
-                        text_color = 'white'  # White text for contrast
-                    elif color == '#DC143C':  # Red: Significant Delay
-                        text_color = 'white'  # White text for contrast
-                    elif color == '#9932CC':  # Purple: Missed Out Punch
-                        text_color = 'white'  # White text for contrast
-                    elif color == '#FFB6C1':  # Pink: Multiple punches flagged
-                        text_color = '#495057'  # Dark gray for readability
-                    elif color == '#D3D3D3':  # Gray: Absent days
-                        text_color = '#6C757D'  # Medium gray for N/A text
-                    else:  # Light gray (missing data)
-                        text_color = '#6C757D'  # Medium gray
-                    
-                    ax1.text(j + 0.5, len(punch_times_grid) - 1 - i + 0.5, punch_time,
-                           ha='center', va='center', fontsize=14, fontweight='bold',
-                           color=text_color, family='monospace')
-                elif color != 'white':  # CHANGE REQUEST #3: Don't show N/A for spacing rows
+                    # Check if this is the total hours column
+                    if j == 4:  # Total hours column
+                        # Special handling for hours column
+                        if color == '#34495E':  # Dark gray background (overtime)
+                            text_color = 'white'
+                        elif color == '#DC143C':  # Red background (under-hours)
+                            text_color = 'white'
+                        elif color == '#D3D3D3':  # Gray background (absent)
+                            text_color = '#6C757D'
+                        else:  # White background (normal hours)
+                            text_color = '#34495E'  # Dark gray text
+                        
+                        # Render with bold monospace font, adjusted for narrower column
+                        ax1.text(j + 0.25, len(punch_times_grid) - 1 - i + 0.5, punch_time,
+                               ha='center', va='center', fontsize=15, fontweight='bold',
+                               color=text_color, family='monospace')
+                    else:
+                        # Determine text color based on new color scheme
+                        if color == '#228B22':  # Green: Acceptable
+                            text_color = '#2C3E50'  # Dark text for readability
+                        elif color == '#DAA520':  # Yellow: Minor Delay
+                            text_color = '#2C3E50'  # Dark text for readability
+                        elif color == '#FF6600':  # Orange: Major Delay
+                            text_color = 'white'  # White text for contrast
+                        elif color == '#DC143C':  # Red: Significant Delay
+                            text_color = 'white'  # White text for contrast
+                        elif color == '#9932CC':  # Purple: Missed Out Punch
+                            text_color = 'white'  # White text for contrast
+                        elif color == '#FFB6C1':  # Pink: Multiple punches flagged
+                            text_color = '#495057'  # Dark gray for readability
+                        elif color == '#D3D3D3':  # Gray: Absent days
+                            text_color = '#6C757D'  # Medium gray for N/A text
+                        else:  # Light gray (missing data)
+                            text_color = '#6C757D'  # Medium gray
+                        
+                        ax1.text(j + 0.5, len(punch_times_grid) - 1 - i + 0.5, punch_time,
+                               ha='center', va='center', fontsize=14, fontweight='bold',
+                               color=text_color, family='monospace')
+                elif color != 'white':  # Don't show N/A for spacing rows
                     # Show "N/A" for missing punches (but not for spacing rows)
-                    if color == '#D3D3D3':  # CHANGE REQUEST #4: Absent day styling
+                    if color == '#D3D3D3':  # Absent day styling
                         text_color = '#6C757D'  # Medium gray for absent days
                     else:
                         text_color = '#6C757D'  # Medium gray for missing punches
@@ -644,90 +787,38 @@ class TimeClockAnalyzer:
                            color=text_color, style='italic')
         
         # Enhanced axes setup
-        ax1.set_xlim(-0.1, len(columns) + 0.1)
+        ax1.set_xlim(-0.1, 4.7)  # Adjusted for narrower total hours column
         ax1.set_ylim(-0.1, len(punch_times_grid) + 0.1)
         
         # Enhanced column headers
         ax1.set_xticks(column_positions)
-        ax1.set_xticklabels(columns, fontsize=16, fontweight='bold', color='#2C3E50')
+        ax1.set_xticklabels(columns, fontsize=14, fontweight='bold', color='#2C3E50')
         
         # Enhanced row labels (employee names and days)
         ax1.set_yticks([i + 0.5 for i in range(len(all_employees_expanded))])
-        ax1.set_yticklabels(reversed(all_employees_expanded), fontsize=11, color='#2C3E50')
+        ax1.set_yticklabels(reversed(all_employees_expanded), fontsize=10, color='#2C3E50')
         
         # Enhanced axis labels
-        ax1.set_xlabel('PUNCH CATEGORIES', fontsize=16, fontweight='bold', color='#2C3E50', labelpad=20)
-        ax1.set_ylabel('EMPLOYEES & WORK DAYS', fontsize=16, fontweight='bold', color='#2C3E50', labelpad=20)
+        ax1.set_xlabel('PUNCH CATEGORIES', fontsize=14, fontweight='bold', color='#2C3E50', labelpad=15)
+        ax1.set_ylabel('EMPLOYEES & WORK DAYS', fontsize=14, fontweight='bold', color='#2C3E50', labelpad=15)
         
         # Add professional employee separator lines
-        current_employee = None
-        for i, emp_day in enumerate(reversed(all_employees_expanded)):
-            employee_name = emp_day.split('\n')[0]
-            if current_employee and current_employee != employee_name:
-                ax1.axhline(y=len(all_employees_expanded) - i - 0.5, color='#2C3E50', 
-                          linewidth=3, alpha=0.8, linestyle='-')
-            current_employee = employee_name
+        for sep_row in employee_separators:
+            if sep_row < len(punch_times_grid) - 1:  # Don't draw after last employee
+                ax1.axhline(y=len(punch_times_grid) - sep_row - 0.5, color='#34495E', linewidth=1.5, alpha=0.3)
         
-        # Add column separator lines
-        for x in [1, 2, 3]:
-            ax1.axvline(x=x, color='#2C3E50', linewidth=2, alpha=0.6)
+        # Grid styling
+        ax1.set_axisbelow(True)
+        ax1.grid(False)
         
-        # Remove default spines and ticks for cleaner look
+        # Clean up plot borders
         ax1.spines['top'].set_visible(False)
         ax1.spines['right'].set_visible(False)
-        ax1.spines['bottom'].set_color('#2C3E50')
-        ax1.spines['left'].set_color('#2C3E50')
-        ax1.tick_params(colors='#2C3E50', which='both', length=0)
+        ax1.spines['bottom'].set_color('#34495E')
+        ax1.spines['left'].set_color('#34495E')
+        ax1.tick_params(colors='#34495E', which='both')
         
-        # SECONDARY VISUALIZATION: Enhanced Overall Anomaly Score Heat Map
-        if self.analysis_results:
-            periods = [p['label'] for p in self.two_week_periods]
-            
-            heat_data = []
-            for employee in employees:
-                row = []
-                for period in periods:
-                    if period in self.analysis_results[employee]:
-                        score = self.analysis_results[employee][period]['score']
-                    else:
-                        score = 0
-                    row.append(score)
-                heat_data.append(row)
-            
-            # Enhanced secondary heatmap with professional styling
-            im = ax2.imshow(heat_data, cmap='RdYlGn_r', aspect='auto', alpha=0.9)
-            
-            # Add enhanced text annotations with better sizing
-            for i in range(len(employees)):
-                for j in range(len(periods)):
-                    score_value = heat_data[i][j]
-                    text_color = "white" if score_value > 20 else "#2C3E50"
-                    ax2.text(j, i, str(score_value), ha="center", va="center",
-                           color=text_color, fontweight='bold', fontsize=12)
-            
-            # Enhanced secondary title and labels
-            ax2.set_title('SUMMARY: OVERALL ANOMALY SCORES BY 2-WEEK PERIOD\n(Lower scores indicate better performance)', 
-                         fontsize=16, fontweight='bold', pad=20, color='#2C3E50')
-            ax2.set_xticks(range(len(periods)))
-            ax2.set_xticklabels(periods, fontsize=12, color='#2C3E50')
-            ax2.set_yticks(range(len(employees)))
-            ax2.set_yticklabels(employees, fontsize=12, color='#2C3E50')
-            ax2.set_xlabel('2-Week Analysis Periods', fontsize=14, fontweight='bold', color='#2C3E50', labelpad=15)
-            ax2.set_ylabel('Employees', fontsize=14, fontweight='bold', color='#2C3E50', labelpad=15)
-            
-            # Enhanced colorbar
-            cbar = plt.colorbar(im, ax=ax2, shrink=0.6, pad=0.02)
-            cbar.set_label('Anomaly Score\n(Higher = More Issues)', fontsize=12, fontweight='bold', color='#2C3E50')
-            cbar.ax.tick_params(labelsize=10, colors='#2C3E50')
-            
-            # Clean up secondary plot styling
-            ax2.spines['top'].set_visible(False)
-            ax2.spines['right'].set_visible(False)
-            ax2.spines['bottom'].set_color('#2C3E50')
-            ax2.spines['left'].set_color('#2C3E50')
-            ax2.tick_params(colors='#2C3E50', which='both')
-        
-        # CHANGE REQUEST #5: Enhanced legend with business action guidance
+        # Enhanced legend with business action guidance
         legend_elements = [
             plt.Rectangle((0, 0), 1, 1, facecolor='#228B22', label='Acceptable (±5 min) - No Action Required'),
             plt.Rectangle((0, 0), 1, 1, facecolor='#DAA520', label='Minor Delay (5-7 min) - Verbal Reminder'),
@@ -739,23 +830,19 @@ class TimeClockAnalyzer:
             plt.Rectangle((0, 0), 1, 1, facecolor='#D3D3D3', edgecolor='#34495E', label='Absent Day - Absence Tracking')
         ]
         ax1.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.02, 1), 
-                  fontsize=12, frameon=True, fancybox=True, shadow=True)
+                  fontsize=10, frameon=True, fancybox=True, shadow=True)
         
         # Enhanced layout and save
         plt.tight_layout()
-        plt.subplots_adjust(right=0.85, hspace=0.3)  # Make room for legend
+        plt.subplots_adjust(right=0.8)  # Make room for legend
         
-        # Save with high quality
-        plt.savefig('timeclock_detailed_heatmap.png', dpi=400, bbox_inches='tight', 
-                   facecolor='white', edgecolor='none', format='png')
-        plt.savefig('timeclock_detailed_heatmap.pdf', bbox_inches='tight',
-                   facecolor='white', edgecolor='none', format='pdf')  # Also save as PDF
+        # Save with 300 DPI (reduced from 400)
+        plt.savefig(output_filename, dpi=300, bbox_inches='tight', 
+                   facecolor='white', edgecolor='none', format='pdf')
         
-        plt.show()
-        
-        print("Enhanced heat maps saved:")
-        print("  - timeclock_detailed_heatmap.png (High-resolution PNG)")
-        print("  - timeclock_detailed_heatmap.pdf (Vector PDF for presentations)")
+        # Don't show plot - just save
+        plt.close(fig)
+    
     
     def generate_heat_map(self):
         """Generate both detailed punch heat map and overall anomaly score heat map."""
