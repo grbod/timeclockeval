@@ -621,7 +621,6 @@ class TimeClockAnalyzer:
         
         # Title with page info
         ax1.set_title(f'EMPLOYEE TIME CLOCK - DETAILED PUNCH ANALYSIS (Page {page_num} of {total_pages})\n' +
-                     'Color Coding: 🟢 Acceptable (±5min) | 🟡 Minor (5-7min) | 🟠 Major (7-11min) | 🔴 Significant (>11min)\n' +
                      'Management Actions: Green=None | Yellow=Verbal | Orange=Written | Red=Disciplinary | Gray=Absence Tracking', 
                      fontsize=14, fontweight='bold', pad=20, color='#2C3E50')
         
@@ -788,18 +787,23 @@ class TimeClockAnalyzer:
         
         # Enhanced axes setup
         ax1.set_xlim(-0.1, 4.7)  # Adjusted for narrower total hours column
-        ax1.set_ylim(-0.1, len(punch_times_grid) + 0.1)
+        ax1.set_ylim(-0.1, len(punch_times_grid) + 1.5)  # Extra space for column headers at top
         
-        # Enhanced column headers
+        # Move column headers to top
         ax1.set_xticks(column_positions)
-        ax1.set_xticklabels(columns, fontsize=14, fontweight='bold', color='#2C3E50')
+        ax1.set_xticklabels([])  # Remove bottom labels
+        
+        # Add column headers at the top
+        for i, (pos, col) in enumerate(zip(column_positions, columns)):
+            ax1.text(pos, len(punch_times_grid) + 0.5, col, 
+                    ha='center', va='bottom', fontsize=14, fontweight='bold', 
+                    color='#2C3E50')
         
         # Enhanced row labels (employee names and days)
         ax1.set_yticks([i + 0.5 for i in range(len(all_employees_expanded))])
         ax1.set_yticklabels(reversed(all_employees_expanded), fontsize=10, color='#2C3E50')
         
         # Enhanced axis labels
-        ax1.set_xlabel('PUNCH CATEGORIES', fontsize=14, fontweight='bold', color='#2C3E50', labelpad=15)
         ax1.set_ylabel('EMPLOYEES & WORK DAYS', fontsize=14, fontweight='bold', color='#2C3E50', labelpad=15)
         
         # Add professional employee separator lines
@@ -818,23 +822,25 @@ class TimeClockAnalyzer:
         ax1.spines['left'].set_color('#34495E')
         ax1.tick_params(colors='#34495E', which='both')
         
-        # Enhanced legend with business action guidance
+        # Create horizontal color legend at the top
         legend_elements = [
-            plt.Rectangle((0, 0), 1, 1, facecolor='#228B22', label='Acceptable (±5 min) - No Action Required'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#DAA520', label='Minor Delay (5-7 min) - Verbal Reminder'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#FF6600', label='Major Delay (7-11 min) - Written Documentation'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#DC143C', label='Significant Delay (>11 min) - Disciplinary Action'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#228B22', label='Acceptable (±5 min)'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#DAA520', label='Minor (5-7 min)'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#FF6600', label='Major (7-11 min)'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#DC143C', label='Significant (>11 min)'),
             plt.Rectangle((0, 0), 1, 1, facecolor='#9932CC', label='Missed Out Punch'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#FFB6C1', edgecolor='#34495E', label='Flagged: Additional Punches Detected'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#F8F8F8', edgecolor='#34495E', label='Missing Punch Data'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#D3D3D3', edgecolor='#34495E', label='Absent Day - Absence Tracking')
+            plt.Rectangle((0, 0), 1, 1, facecolor='#FFB6C1', edgecolor='#34495E', label='Multiple Punches'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#F8F8F8', edgecolor='#34495E', label='Missing Data'),
+            plt.Rectangle((0, 0), 1, 1, facecolor='#D3D3D3', edgecolor='#34495E', label='Absent Day')
         ]
-        ax1.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.02, 1), 
-                  fontsize=10, frameon=True, fancybox=True, shadow=True)
+        
+        # Add the legend at the top of the figure
+        fig.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, 0.94),
+                  ncol=4, fontsize=10, frameon=True, fancybox=True, shadow=True)
         
         # Enhanced layout and save
         plt.tight_layout()
-        plt.subplots_adjust(right=0.8)  # Make room for legend
+        plt.subplots_adjust(top=0.88)  # Make room for legend at top
         
         # Save with 300 DPI (reduced from 400)
         plt.savefig(output_filename, dpi=300, bbox_inches='tight', 
