@@ -540,7 +540,7 @@ class TimeClockAnalyzer:
                     total_hours_data[employee][day_key] = "0:00"
         
         # Now generate pages
-        employees_per_page = 3
+        employees_per_page = 2
         total_pages = (len(employees) + employees_per_page - 1) // employees_per_page
         
         # List to store PDF files
@@ -605,12 +605,12 @@ class TimeClockAnalyzer:
         if len(employees_subset) > 1:
             total_rows += len(employees_subset) - 1
         
-        cell_height = 0.6  # Height per cell (reduced for 3 employees)
+        cell_height = 0.7  # Height per cell (optimized for 2 employees)
         cell_width = 2.0   # Width per cell (reduced for letter size)
         
         # Standard letter size: 8.5 x 11 inches
         fig_width = 8.5
-        fig_height = 11
+        fig_height = 11  # Keep consistent height regardless of employee count
         
         # Create figure with only one subplot (no secondary heat map for memory efficiency)
         fig, ax1 = plt.subplots(1, 1, figsize=(fig_width, fig_height))
@@ -619,9 +619,7 @@ class TimeClockAnalyzer:
         plt.style.use('default')
         fig.patch.set_facecolor('white')
         
-        # Title with page info
-        ax1.set_title(f'EMPLOYEE TIME CLOCK - DETAILED PUNCH ANALYSIS (Page {page_num} of {total_pages})', 
-                     fontsize=12, fontweight='bold', pad=25, color='#2C3E50')
+        # Title removed per request
         
         # Build grid data for subset of employees
         row_index = 0
@@ -655,9 +653,9 @@ class TimeClockAnalyzer:
                     total_hours_float = float(hours_parts[0]) + float(hours_parts[1])/60
                     
                     if total_hours_float < 7.5:
-                        hours_color = '#DC143C'  # Red for under-hours
+                        hours_color = '#9247d5'  # Purple for under-hours
                     elif total_hours_float > 8.5:
-                        hours_color = '#34495E'  # Dark gray background for overtime
+                        hours_color = '#2c67dc'  # Blue background for overtime
                     else:
                         hours_color = '#FFFFFF'  # White background for normal hours
                 
@@ -738,14 +736,14 @@ class TimeClockAnalyzer:
                     # Check if this is the total hours column
                     if j == 4:  # Total hours column
                         # Special handling for hours column
-                        if color == '#34495E':  # Dark gray background (overtime)
+                        if color == '#2c67dc':  # Blue background (overtime)
                             text_color = 'white'
-                        elif color == '#DC143C':  # Red background (under-hours)
+                        elif color == '#9247d5':  # Purple background (under-hours)
                             text_color = 'white'
                         elif color == '#D3D3D3':  # Gray background (absent)
                             text_color = '#6C757D'
                         else:  # White background (normal hours)
-                            text_color = '#34495E'  # Dark gray text
+                            text_color = '#2C3E50'  # Dark text
                         
                         # Render with bold monospace font, adjusted for narrower column
                         ax1.text(j + 0.25, len(punch_times_grid) - 1 - i + 0.5, punch_time,
@@ -833,13 +831,18 @@ class TimeClockAnalyzer:
             plt.Rectangle((0, 0), 1, 1, facecolor='#D3D3D3', edgecolor='#34495E', label='Absent Day')
         ]
         
-        # Add the legend below the title
-        fig.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, 0.88),
+        # Add the legend at the top (no title now)
+        fig.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, 0.92),
                   ncol=4, fontsize=9, frameon=True, fancybox=True, shadow=True)
         
         # Enhanced layout and save
         plt.tight_layout()
-        plt.subplots_adjust(top=0.82)  # Make room for title and legend
+        plt.subplots_adjust(top=0.86)  # Make room for legend only
+        
+        # Add page number in lower right corner
+        ax1.text(0.95, 0.02, f'{page_num} of {total_pages}', 
+                transform=ax1.transAxes, ha='right', va='bottom',
+                fontsize=10, color='#2C3E50', style='italic')
         
         # Save with 300 DPI (reduced from 400)
         plt.savefig(output_filename, dpi=300, bbox_inches='tight', 
