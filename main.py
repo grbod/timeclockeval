@@ -540,7 +540,7 @@ class TimeClockAnalyzer:
                     total_hours_data[employee][day_key] = "0:00"
         
         # Now generate pages
-        employees_per_page = 2
+        employees_per_page = 3
         total_pages = (len(employees) + employees_per_page - 1) // employees_per_page
         
         # List to store PDF files
@@ -605,12 +605,12 @@ class TimeClockAnalyzer:
         if len(employees_subset) > 1:
             total_rows += len(employees_subset) - 1
         
-        cell_height = 0.8  # Height per cell
-        cell_width = 2.5   # Width per cell
+        cell_height = 0.6  # Height per cell (reduced for 3 employees)
+        cell_width = 2.0   # Width per cell (reduced for letter size)
         
-        # Smaller figure for 2 employees
-        fig_width = max(16, len(columns) * cell_width + 4)
-        fig_height = max(8, total_rows * cell_height + 4)
+        # Standard letter size: 8.5 x 11 inches
+        fig_width = 8.5
+        fig_height = 11
         
         # Create figure with only one subplot (no secondary heat map for memory efficiency)
         fig, ax1 = plt.subplots(1, 1, figsize=(fig_width, fig_height))
@@ -620,9 +620,8 @@ class TimeClockAnalyzer:
         fig.patch.set_facecolor('white')
         
         # Title with page info
-        ax1.set_title(f'EMPLOYEE TIME CLOCK - DETAILED PUNCH ANALYSIS (Page {page_num} of {total_pages})\n' +
-                     'Management Actions: Green=None | Yellow=Verbal | Orange=Written | Red=Disciplinary | Gray=Absence Tracking', 
-                     fontsize=14, fontweight='bold', pad=20, color='#2C3E50')
+        ax1.set_title(f'EMPLOYEE TIME CLOCK - DETAILED PUNCH ANALYSIS (Page {page_num} of {total_pages})', 
+                     fontsize=12, fontweight='bold', pad=25, color='#2C3E50')
         
         # Build grid data for subset of employees
         row_index = 0
@@ -732,7 +731,7 @@ class TimeClockAnalyzer:
                         # Add flagged notation in italic dark gray
                         ax1.text(j + 0.5, len(punch_times_grid) - 1 - i + 0.5, 
                                'Flagged: Additional\nPunches Detected',
-                               ha='center', va='center', fontsize=10, 
+                               ha='center', va='center', fontsize=8, 
                                style='italic', color='#495057', fontweight='normal')
                         continue  # Skip normal punch time rendering for this cell
                     
@@ -750,7 +749,7 @@ class TimeClockAnalyzer:
                         
                         # Render with bold monospace font, adjusted for narrower column
                         ax1.text(j + 0.25, len(punch_times_grid) - 1 - i + 0.5, punch_time,
-                               ha='center', va='center', fontsize=15, fontweight='bold',
+                               ha='center', va='center', fontsize=11, fontweight='bold',
                                color=text_color, family='monospace')
                     else:
                         # Determine text color based on new color scheme
@@ -772,7 +771,7 @@ class TimeClockAnalyzer:
                             text_color = '#6C757D'  # Medium gray
                         
                         ax1.text(j + 0.5, len(punch_times_grid) - 1 - i + 0.5, punch_time,
-                               ha='center', va='center', fontsize=14, fontweight='bold',
+                               ha='center', va='center', fontsize=10, fontweight='bold',
                                color=text_color, family='monospace')
                 elif color != 'white':  # Don't show N/A for spacing rows
                     # Show "N/A" for missing punches (but not for spacing rows)
@@ -782,7 +781,7 @@ class TimeClockAnalyzer:
                         text_color = '#6C757D'  # Medium gray for missing punches
                     
                     ax1.text(j + 0.5, len(punch_times_grid) - 1 - i + 0.5, 'N/A',
-                           ha='center', va='center', fontsize=12, fontweight='normal',
+                           ha='center', va='center', fontsize=9, fontweight='normal',
                            color=text_color, style='italic')
         
         # Enhanced axes setup
@@ -796,15 +795,15 @@ class TimeClockAnalyzer:
         # Add column headers at the top
         for i, (pos, col) in enumerate(zip(column_positions, columns)):
             ax1.text(pos, len(punch_times_grid) + 0.5, col, 
-                    ha='center', va='bottom', fontsize=14, fontweight='bold', 
+                    ha='center', va='bottom', fontsize=11, fontweight='bold', 
                     color='#2C3E50')
         
         # Enhanced row labels (employee names and days)
         ax1.set_yticks([i + 0.5 for i in range(len(all_employees_expanded))])
-        ax1.set_yticklabels(reversed(all_employees_expanded), fontsize=10, color='#2C3E50')
+        ax1.set_yticklabels(reversed(all_employees_expanded), fontsize=8, color='#2C3E50')
         
         # Enhanced axis labels
-        ax1.set_ylabel('EMPLOYEES & WORK DAYS', fontsize=14, fontweight='bold', color='#2C3E50', labelpad=15)
+        ax1.set_ylabel('EMPLOYEES & WORK DAYS', fontsize=11, fontweight='bold', color='#2C3E50', labelpad=10)
         
         # Add professional employee separator lines
         for sep_row in employee_separators:
@@ -834,13 +833,13 @@ class TimeClockAnalyzer:
             plt.Rectangle((0, 0), 1, 1, facecolor='#D3D3D3', edgecolor='#34495E', label='Absent Day')
         ]
         
-        # Add the legend at the top of the figure
-        fig.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, 0.94),
-                  ncol=4, fontsize=10, frameon=True, fancybox=True, shadow=True)
+        # Add the legend below the title
+        fig.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, 0.88),
+                  ncol=4, fontsize=9, frameon=True, fancybox=True, shadow=True)
         
         # Enhanced layout and save
         plt.tight_layout()
-        plt.subplots_adjust(top=0.88)  # Make room for legend at top
+        plt.subplots_adjust(top=0.82)  # Make room for title and legend
         
         # Save with 300 DPI (reduced from 400)
         plt.savefig(output_filename, dpi=300, bbox_inches='tight', 
