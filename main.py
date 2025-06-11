@@ -819,30 +819,37 @@ class TimeClockAnalyzer:
         ax1.spines['left'].set_color('#34495E')
         ax1.tick_params(colors='#34495E', which='both')
         
-        # Create horizontal color legend at the top
-        legend_elements = [
-            plt.Rectangle((0, 0), 1, 1, facecolor='#228B22', label='Acceptable (±5 min)'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#DAA520', label='Minor (5-7 min)'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#FF6600', label='Major (7-11 min)'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#DC143C', label='Significant (>11 min)'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#9932CC', label='Missed Out Punch'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#FFB6C1', edgecolor='#34495E', label='Multiple Punches'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#F8F8F8', edgecolor='#34495E', label='Missing Data'),
-            plt.Rectangle((0, 0), 1, 1, facecolor='#D3D3D3', edgecolor='#34495E', label='Absent Day')
-        ]
+        # Only add legend on page 1
+        if page_num == 1:
+            # Create horizontal color legend at the top
+            legend_elements = [
+                plt.Rectangle((0, 0), 1, 1, facecolor='#228B22', label='Acceptable (±5 min)'),
+                plt.Rectangle((0, 0), 1, 1, facecolor='#DAA520', label='Minor (5-7 min)'),
+                plt.Rectangle((0, 0), 1, 1, facecolor='#FF6600', label='Major (7-11 min)'),
+                plt.Rectangle((0, 0), 1, 1, facecolor='#DC143C', label='Significant (>11 min)'),
+                plt.Rectangle((0, 0), 1, 1, facecolor='#9932CC', label='Missed Out Punch'),
+                plt.Rectangle((0, 0), 1, 1, facecolor='#FFB6C1', edgecolor='#34495E', label='Multiple Punches'),
+                plt.Rectangle((0, 0), 1, 1, facecolor='#F8F8F8', edgecolor='#34495E', label='Missing Data'),
+                plt.Rectangle((0, 0), 1, 1, facecolor='#D3D3D3', edgecolor='#34495E', label='Absent Day')
+            ]
+            
+            # Add the legend at the top (no title now)
+            fig.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, 0.92),
+                      ncol=4, fontsize=9, frameon=True, fancybox=True, shadow=True)
+            
+            # Enhanced layout and save
+            plt.tight_layout()
+            plt.subplots_adjust(top=0.86)  # Make room for legend
+        else:
+            # No legend on subsequent pages - use more vertical space
+            plt.tight_layout()
+            plt.subplots_adjust(top=0.95)  # More space for data
         
-        # Add the legend at the top (no title now)
-        fig.legend(handles=legend_elements, loc='upper center', bbox_to_anchor=(0.5, 0.92),
-                  ncol=4, fontsize=9, frameon=True, fancybox=True, shadow=True)
-        
-        # Enhanced layout and save
-        plt.tight_layout()
-        plt.subplots_adjust(top=0.86)  # Make room for legend only
-        
-        # Add page number in lower right corner
-        ax1.text(0.95, 0.02, f'{page_num} of {total_pages}', 
-                transform=ax1.transAxes, ha='right', va='bottom',
-                fontsize=10, color='#2C3E50', style='italic')
+        # Add page number in extreme bottom left corner (10px margins)
+        # Convert 10 pixels to figure coordinates
+        fig.text(10/72/8.5, 10/72/11, f'{page_num}/{total_pages}', 
+                ha='left', va='bottom',
+                fontsize=8, color='#2C3E50', style='italic')
         
         # Save with 300 DPI (reduced from 400)
         plt.savefig(output_filename, dpi=300, bbox_inches='tight', 
